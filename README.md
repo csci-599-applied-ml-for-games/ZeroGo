@@ -1,13 +1,16 @@
 # ZeroGo
 
-## Current Version: Neural Net Agent
-* book_model: small network, 100 games, 5 epoches
-* model1s: large network, 1000 games, 50 epoches
-* model2: large network, 5000 games, 50 epoches
+## Current models:
+* models/AC: actor critic models based on 5x5 board
+* models/AlphaGo: policy and value agents on 19x19 board. Policy v0-0-0 is based on the previous NN model with 27% accuracy
 
-## Python version bug
-* h5 files matched with specific python version (Python3.6 created h5 file cannot be read by Python3.7)
-* Use save_model.py to save your version of h5 file
+## rl.py
+* process to simulate games and train the RL agents
+
+## dlgo bug fixes
+* AlphaGo MCTS bugs 
+> https://github.com/maxpumperla/deep_learning_and_the_game_of_go/issues/55
+* dlgo-rl-simulate.py line 50: white_player, black_player = agent1, agent2
 
 ## NN_end_to_end.py
 * end to end script from downloading data to open web app
