@@ -9,6 +9,15 @@ STONE_TO_CHAR = {
     gotypes.Player.white: ' o ',
 }
 
+def komi_eval(moves_cnt):
+    if moves_cnt < 30:
+        return 0.5
+    elif moves_cnt < 100:
+        return 0.5 + 3 * (moves_cnt - 30) / (100 - 30)  # 0.5 + part of 3
+    elif moves_cnt < 170:
+        return 3.5 + 4 * (moves_cnt - 100) / (170 - 100)  # 3.5 + part of 4
+    else:
+        return 7.5
 
 def print_move(player, move):
     if move.is_pass:
