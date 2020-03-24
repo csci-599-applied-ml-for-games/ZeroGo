@@ -4,6 +4,20 @@
 * models/AC: actor critic models based on 5x5 board
 * models/AlphaGo: policy and value agents on 19x19 board. Policy v0-0-0 is based on the previous NN model with 27% accuracy
 
+## midterm_agents
+* Contains all agents before midterm, including:
+- random (5x5 and 19x19)
+- greedy (5x5 and 19x19)
+- depth_pruned (5x5)
+- alpha_beta (5x5)
+- mcts (5x5)
+- actor_critic (5x5)
+- NN (19x19)
+
+* 2 game hosts
+- __5x5_host.py
+- __19x19_host.py
+
 ## rl.py
 * process to simulate games and train the RL agents
 
