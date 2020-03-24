@@ -115,7 +115,7 @@ class ValueAgent(Agent):
         y = np.zeros((n,))
         if use_value_rewards:
             for i in range(n):
-                y[i] = experience.value_rewards[i]
+                y[i] = (experience.value_rewards[i] + 1) / 2
         else:
             for i in range(n):
                 reward = experience.rewards[i]
