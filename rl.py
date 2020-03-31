@@ -57,3 +57,57 @@ with h5py.File('policyv1-0-0', 'w') as policy_agent_out:
     alphago_rl_agent.serialize(policy_agent_out)
 with h5py.File('valuev1-0-0', 'w') as value_agent_out: 
     alphago_value.serialize(value_agent_out)
+
+
+## Evaluate the Policy Agent
+import time
+from collections import namedtuple
+from dlgo import scoring
+from dlgo.goboard_fast import GameState, Player, Point
+
+def simulate_game(black_player, white_player):
+    moves = []
+    game = GameState.new_game(BOARD_SIZE)
+    agents = {
+        Player.black: black_player,
+        Player.white: white_player,
+    }
+    while not game.is_over():
+        next_move = agents[game.next_player].select_move(game)
+        moves.append(next_move)
+        #if next_move.is_pass:
+        #    print('%s passes' % name(game.next_player))
+        game = game.apply_move(next_move)
+
+    game_result = scoring.compute_game_result(game)
+    print(game_result)
+
+    return GameRecord(
+        moves=moves,
+        winner=game_result.winner,
+        margin=game_result.winning_margin,
+    )
+
+class GameRecord(namedtuple('GameRecord', 'moves winner margin')):
+  pass
+
+BOARD_SIZE = 19
+agent1 = alphago_rl_agent
+agent2 = opponent
+
+wins = 0
+losses = 0
+color1 = Player.black
+for i in range(500):
+    print('Simulating game %d/%d...' % (i + 1, 500))
+    if color1 == Player.black:
+        black_player, white_player = agent1, agent2
+    else:
+        white_player, black_player = agent1, agent2
+    game_record = simulate_game(black_player, white_player)
+    if game_record.winner == color1:
+        wins += 1
+    else:
+        losses += 1
+    color1 = color1.other
+print('Agent 1 record: %d/%d' % (wins, wins + losses))
