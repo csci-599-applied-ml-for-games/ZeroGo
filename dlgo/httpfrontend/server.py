@@ -37,6 +37,8 @@ def get_web_app(bot_map):
     static_path = os.path.join(here, 'static')
     app = Flask(__name__, static_folder=static_path, static_url_path='/static')
 
+    print(here, static_path, __name__)
+
     @app.route('/select-move/<bot_name>', methods=['POST'])
     def select_move(bot_name):
         content = request.json

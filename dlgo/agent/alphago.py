@@ -4,10 +4,11 @@ from dlgo.agent.base import Agent
 from dlgo.goboard_fast import Move
 from dlgo import kerasutil
 from dlgo import scoring
-from dlgo.utils import komi_eval
+from dlgo.utils import komi_eval, print_board, print_move
 import operator
 # end::alphago_imports[]
 
+DEBUG = 0
 
 __all__ = [
     'AlphaGoNode',
@@ -17,12 +18,13 @@ __all__ = [
 
 # tag::init_alphago_node[]
 class AlphaGoNode:
-    def __init__(self, parent=None, probability=1.0):
+    def __init__(self, parent=None, probability=1.0, q_sum=0, q_value=0):
         self.parent = parent  # <1>
         self.children = {}  # <1>
 
         self.visit_count = 0
-        self.q_value = 0
+        self.q_sum = q_sum
+        self.q_value = q_value
         self.prior_value = probability  # <2>
         self.u_value = probability  # <3>
 # <1> Tree nodes have one parent and potentially many children.
@@ -38,10 +40,11 @@ class AlphaGoNode:
 # end::select_node[]
 
 # tag::expand_children[]
-    def expand_children(self, moves, probabilities):
-        for move, prob in zip(moves, probabilities):
+    def expand_children(self, moves, probabilities, values):
+        for move, prob, value in zip(moves, probabilities, values):
             if move not in self.children:
-                self.children[move] = AlphaGoNode(parent=self, probability=prob)
+                self.children[move] = AlphaGoNode(parent=self, probability=prob, 
+                q_sum=value, q_value=value)
 # end::expand_children[]
 
 # tag::update_values[]
@@ -51,10 +54,11 @@ class AlphaGoNode:
 
         self.visit_count += 1  # <2>
 
-        self.q_value += leaf_value / self.visit_count  # <3>
+        self.q_sum += leaf_value
+        self.q_value = self.q_sum / self.visit_count  # <3>
 
         if self.parent is not None:
-            c_u = 5
+            c_u = 3
             self.u_value = c_u * np.sqrt(self.parent.visit_count) \
                 * self.prior_value / (1 + self.visit_count)  # <4>
 
@@ -69,7 +73,13 @@ class AlphaGoNode:
 class AlphaGoMCTS(Agent):
     def __init__(self, policy_agent, fast_policy_agent, value_agent,
                  lambda_value=0.5, num_simulations=1000,
-                 depth=50, rollout_limit=100):
+                 depth=50, rollout_limit=100,
+                 verbose=False):
+        #depth needs to be even
+        if depth % 50 == 1:
+            depth += 1
+        self.verbose = verbose
+                
         self.policy = policy_agent
         self.rollout_policy = fast_policy_agent
         self.value = value_agent
@@ -83,6 +93,8 @@ class AlphaGoMCTS(Agent):
 
 # tag::alphago_mcts_rollout[]
     def select_move(self, game_state):
+        if self.verbose >= 2:
+            print('================Searching phase================')
         for simulation in range(self.num_simulations):  # <1>
             current_state = game_state
             node = self.root
@@ -90,10 +102,19 @@ class AlphaGoMCTS(Agent):
                 if not node.children:  # <3>
                     if current_state.is_over():
                         break
-                    moves, probabilities = self.policy_probabilities(current_state)  # <4>
-                    node.expand_children(moves, probabilities)  # <4>
+                    moves, probabilities, values = self.policy_probabilities(current_state)  # <4>
+                    node.expand_children(moves, probabilities, values)  # <4>
 
                 move, node = node.select_child()  # <5>
+                if self.verbose >= 2 and simulation % 10 == 0 and depth == 0:
+                    print('Simulation {}/{}'.format(simulation, self.num_simulations))
+                    print('Expanding move:')
+                    print_move(None, move)
+                    print('num of visits: {0}, Q value: {1:.4f}, u value: {2:.4f}'.format(
+                        node.visit_count,
+                        float(node.q_value), 
+                        float(node.u_value)
+                        ))
                 current_state = current_state.apply_move(move)  # <5>
 
             value = self.value.predict(current_state)  # <6>
@@ -116,12 +137,37 @@ class AlphaGoMCTS(Agent):
 # tag::alphago_mcts_selection[]
         move = max(self.root.children, key=lambda move:  # <1>
                    self.root.children.get(move).visit_count)  # <1>
+        if self.verbose >= 1:
+            vals = {}
+            for child in self.root.children:
+                vals[child] = [self.root.children[child].visit_count,
+                self.root.children[child].q_value,
+                self.root.children[child].u_value,
+                self.root.children[child].q_value + self.root.children[child].u_value]
+            #sort by visit count
+            sorted_vals = sorted(vals.items(), key=lambda x: x[1][0], reverse=True)
+            print('================Candidate moves================')
+            for i in range(5):
+                print_move(None, sorted_vals[i][0])
+                print("num of visits: {0}, q value: {1:.4f}, u value: {2:.4f}, sum value: {3:.4f}".format(
+                    sorted_vals[i][1][0], 
+                    float(sorted_vals[i][1][1]), 
+                    float(sorted_vals[i][1][2]), 
+                    float(sorted_vals[i][1][3])
+                ))        
 
         self.root = AlphaGoNode()
         if move in self.root.children:  # <2>
             self.root = self.root.children[move]
             self.root.parent = None
+        if self.verbose >= 3:
+            print('================Current value: {0:.4f}================'.format(
+                float(self.value.predict(game_state))
+            ))
 
+        if DEBUG:
+            print('================Return Move================')
+            print_move(None, move)
         return move
 # <1> Pick most visited child of the root as next move.
 # <2> If the picked move is a child, set new root to this child node.
@@ -133,11 +179,24 @@ class AlphaGoMCTS(Agent):
         outputs = self.policy.predict(game_state)
         legal_moves = game_state.legal_moves()
         if not legal_moves:
-            return [], []
+            return [], [], []
         encoded_points = [encoder.encode_point(move.point) for move in legal_moves if move.point]
         legal_outputs = outputs[encoded_points]
-        normalized_outputs = legal_outputs / np.sum(legal_outputs)
-        return legal_moves, normalized_outputs
+
+        top10_points = np.argsort(legal_outputs)[::-1][:10]
+        top10_moves, top10_outputs = [], []
+        for p in top10_points:
+            top10_moves.append(legal_moves[p])
+            top10_outputs.append(legal_outputs[p])
+        
+        normalized_outputs = top10_outputs / np.sum(top10_outputs)
+
+        # predict value
+        vals = []
+        for move in top10_moves:
+            new_state = game_state.apply_move(move)
+            vals.append(float(self.value.predict(new_state)) * self.lambda_value)
+        return top10_moves, normalized_outputs, vals
 # end::alphago_policy_probs[]
 
 # tag::alphago_policy_rollout[]
@@ -161,9 +220,25 @@ class AlphaGoMCTS(Agent):
         
         winner = game_result.winner
         if winner is not None:
-            return 1 if winner == my_side else -1
+            win = 1 if winner == my_side else -1
+            win_margin = np.clip(game_result.winning_margin, -10, 10) * 0.1
+            if win == -1:
+                win_margin = -1 * win_margin
+            return win_margin
         else:
             return 0
+
+        # winner = game_state.winner()
+        # if winner:
+        #     if winner == my_side:
+        #         return 1
+        #     else:
+        #         return -1
+        # else:
+        #     return 0
+
+        
+
 # end::alphago_policy_rollout[]
 
 

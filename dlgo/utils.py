@@ -26,7 +26,10 @@ def print_move(player, move):
         move_str = 'resigns'
     else:
         move_str = '%s%d' % (COLS[move.point.col - 1], move.point.row)
-    print('%s %s' % (player, move_str))
+    if player:
+        print('%s %s' % (player, move_str))
+    else:
+        print(move_str)
 
 
 def print_board(board):

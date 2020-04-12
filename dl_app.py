@@ -12,10 +12,14 @@ fast_policy = load_prediction_agent(
 strong_policy = load_policy_agent(
     h5py.File('./models/AlphaGo/alphago_policyv0-0-0.h5', 'r'))
 value = load_value_agent(
-    h5py.File('./models/AlphaGo/alphago_valuev1-1-3.h5', 'r'))
+    h5py.File('./models/AlphaGo/alphago_valuev1-2-6.h5', 'r'))
 alphago = AlphaGoMCTS(
     strong_policy, fast_policy, value, 
-    depth=5, rollout_limit=10, num_simulations=10)
+    depth=8, rollout_limit=1, num_simulations=30, verbose=1)
+
+alphago_head = AlphaGoMCTS(
+    strong_policy, fast_policy, value, 
+    depth=10, rollout_limit=10, num_simulations=30, verbose=3)
 
 ## NN agent
 # model_file = h5py.File("./models/debugged models/agentv1-0-1.h5", "r")
@@ -25,5 +29,5 @@ alphago = AlphaGoMCTS(
 # model_file = h5py.File("./models/AC/agent_00021000.hdf5")
 # bot_from_file = load_ac_agent(model_file)
 
-web_app = get_web_app({'predict': alphago})
+web_app = get_web_app({'predict': alphago_head})
 web_app.run(threaded=False)

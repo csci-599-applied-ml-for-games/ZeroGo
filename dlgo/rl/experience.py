@@ -44,15 +44,25 @@ class ExperienceCollector:
             stone_advantage = self._current_stone_advantages[i]  # current advantage on board
             stone_advantage = np.clip(stone_advantage, -10, 10) * 0.1  # clip to [-1, 1]
 
-            if i < 15:
-                discount_reward = reward * 0.1  # reward discounted to 10% for the first 30 steps
-            elif i < 75:
-                discount_reward = reward * 0.1 + \
-                    reward * 0.9 * (i - 15) / 60  # reward discounted rate (i - 30) / (150 - 30)
+            if i <= 15:
+                discount_reward = 0  # no reward for the first 30 steps (15 for each)
+            elif i < 105:
+                discount_reward = reward * \
+                (i - 15) ** 2 / (90 ** 2)  # reward discounted rate (i - 15) ** 2 / (135 - 15) ** 2
             else: 
-                discount_reward = reward  # full reward after 150th step
+                discount_reward = reward  # full reward after 270th step
 
-            value_reward = np.mean([stone_advantage, discount_reward])
+            # adjust reward according to stone advantage
+            if (stone_advantage == 1 and discount_reward < 0) or \
+                (stone_advantage == -1 and discount_reward > 0):
+                discount_reward *= 0.25
+            elif stone_advantage * discount_reward < 0:
+                discount_reward = 0.25 * discount_reward + \
+                    0.75 * discount_reward * (1 - abs(stone_advantage))
+
+            # value_reward = (np.mean([stone_advantage, discount_reward]) + 1) / 2
+            # scale to [0, 1]
+            value_reward = (discount_reward + 1) / 2
             self.value_rewards.append(value_reward)
 
             advantage = reward - self._current_episode_estimated_values[i]
