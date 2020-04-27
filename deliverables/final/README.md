@@ -1,4 +1,6 @@
 - All presentations 
 - Final report
 - Midterm report
+- Final presentation
+- Midterm presentation
 - Website code 
