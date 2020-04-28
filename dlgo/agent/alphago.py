@@ -58,7 +58,7 @@ class AlphaGoNode:
         self.q_value = self.q_sum / self.visit_count  # <3>
 
         if self.parent is not None:
-            c_u = 3
+            c_u = 2
             self.u_value = c_u * np.sqrt(self.parent.visit_count) \
                 * self.prior_value / (1 + self.visit_count)  # <4>
 
@@ -96,6 +96,7 @@ class AlphaGoMCTS(Agent):
         if self.verbose >= 2:
             print('================Searching phase================')
         for simulation in range(self.num_simulations):  # <1>
+            my_side = game_state.next_player
             current_state = game_state
             node = self.root
             for depth in range(self.depth):  # <2>
@@ -118,10 +119,20 @@ class AlphaGoMCTS(Agent):
                 current_state = current_state.apply_move(move)  # <5>
 
             value = self.value.predict(current_state)  # <6>
+            current_result = scoring.compute_game_result(current_state, komi=0)
+            winner = current_result.winner
+            current_win_margin = 0
+            if winner is not None:
+                win = 1 if winner == my_side else -1
+                current_win_margin = np.clip(current_result.winning_margin, -3, 3) / 3
+                if win == -1:
+                    current_win_margin = -1 * current_win_margin               
+
             rollout = self.policy_rollout(current_state)  # <6>
+            rollout_diff = rollout - current_win_margin
 
             weighted_value = (1 - self.lambda_value) * value + \
-                self.lambda_value * rollout  # <7>
+                self.lambda_value * rollout_diff  # <7>
 
             node.update_values(weighted_value)  # <8>
 # <1> From current state play out a number of simulations
@@ -214,14 +225,14 @@ class AlphaGoMCTS(Agent):
                     game_state = game_state.apply_move(greedy_move)
                     break
 
-        moves_cnt = len(game_state.previous_states)
-        komi = komi_eval(moves_cnt)
-        game_result = scoring.compute_game_result(game_state, komi=komi)
+        # moves_cnt = len(game_state.previous_states)
+        # komi = komi_eval(moves_cnt)
+        game_result = scoring.compute_game_result(game_state, komi=0)
         
         winner = game_result.winner
         if winner is not None:
             win = 1 if winner == my_side else -1
-            win_margin = np.clip(game_result.winning_margin, -10, 10) * 0.1
+            win_margin = np.clip(game_result.winning_margin, -3, 3) / 3
             if win == -1:
                 win_margin = -1 * win_margin
             return win_margin

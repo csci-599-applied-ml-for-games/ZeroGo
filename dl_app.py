@@ -19,7 +19,7 @@ alphago = AlphaGoMCTS(
 
 alphago_head = AlphaGoMCTS(
     strong_policy, fast_policy, value, 
-    depth=10, rollout_limit=10, num_simulations=30, verbose=3)
+    depth=5, rollout_limit=5, num_simulations=250, verbose=3)
 
 ## NN agent
 # model_file = h5py.File("./models/debugged models/agentv1-0-1.h5", "r")
